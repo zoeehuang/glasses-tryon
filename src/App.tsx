@@ -1,122 +1,49 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { FramePicker } from './components/FramePicker';
+import { ShapePanel } from './components/ShapePanel';
+import { TryOn } from './components/TryOn';
+import { useFaceLandmarker } from './hooks/useFaceLandmarker';
+import { FACE_SHAPE_INFO } from './lib/frames';
+import type { FaceShape, FrameChoice } from './types';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const { landmarker, loading, error } = useFaceLandmarker();
+  const [cameraOn, setCameraOn] = useState(false);
+  const [frame, setFrame] = useState<FrameChoice>('aviator');
+  const [shape, setShape] = useState<FaceShape | null>(null);
+
+  const recommended = shape ? FACE_SHAPE_INFO[shape].recommended : [];
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="mx-auto max-w-5xl space-y-4 p-4">
+      <header className="flex items-center gap-3">
+        <h1 className="text-xl font-semibold">Glasses Try-On</h1>
+        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">Beta</span>
+      </header>
+      <p className="text-sm text-slate-600">
+        Your video is processed in your browser and is never uploaded.
+      </p>
+      <div className="grid gap-4 md:grid-cols-[1fr_300px]">
+        <div className="space-y-3">
+          {cameraOn && landmarker ? (
+            <TryOn landmarker={landmarker} frame={frame} onShape={setShape} />
+          ) : (
+            <div className="flex aspect-[4/3] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+              {error ?? (loading ? 'Loading face model...' : 'Press "Start camera" to begin')}
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={loading || error !== null}
+            onClick={() => setCameraOn((on) => !on)}
+            className="w-full rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {cameraOn ? 'Stop camera' : 'Start camera'}
+          </button>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        <ShapePanel shape={shape} onSelect={setFrame} />
+      </div>
+      <FramePicker selected={frame} recommended={recommended} onSelect={setFrame} />
+    </main>
+  );
 }
-
-export default App
