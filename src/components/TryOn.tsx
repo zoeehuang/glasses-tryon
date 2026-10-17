@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FaceLandmarker } from '@mediapipe/tasks-vision';
-import { drawGlasses } from '../lib/drawGlasses';
+import {
+  DEFAULT_FRAME_OPTIONS,
+  DEFAULT_LENS_OPTIONS,
+  drawGlasses,
+  type FrameOptions,
+  type LensOptions,
+} from '../lib/drawGlasses';
 import { classifyFaceShape, createShapeVoter } from '../lib/faceShape';
+import { loadFrameAssets } from '../lib/frameImages';
 import { smoothLandmarks } from '../lib/smoothing';
-import type { FaceShape, FrameChoice, Landmark } from '../types';
+import type { FaceShape, FrameChoice, FrameStyle, Landmark } from '../types';
 
 type Props = {
   landmarker: FaceLandmarker;
   frame: FrameChoice;
   onShape: (shape: FaceShape) => void;
+  lensOptions?: LensOptions;
+  frameOptions?: FrameOptions;
 };
 
 const CAMERA_ERRORS: Record<string, string> = {
@@ -22,19 +31,45 @@ function describeCameraError(err: unknown): string {
   return 'Could not start the camera.';
 }
 
-export function TryOn({ landmarker, frame, onShape }: Props) {
+export function TryOn({
+  landmarker,
+  frame,
+  onShape,
+  lensOptions = DEFAULT_LENS_OPTIONS,
+  frameOptions = DEFAULT_FRAME_OPTIONS,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<FrameChoice>(frame);
+  const lensOptionsRef = useRef<LensOptions>(lensOptions);
+  const frameOptionsRef = useRef<FrameOptions>(frameOptions);
   const [aspect, setAspect] = useState(4 / 3);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facePresent, setFacePresent] = useState(false);
+  const imagesRef = useRef<Partial<Record<FrameStyle, HTMLImageElement>>>({});
+  const masksRef = useRef<Partial<Record<FrameStyle, HTMLImageElement>>>({});
+
+  // Load the photorealistic frame images and lens masks once, up front.
+  useEffect(() => {
+    loadFrameAssets().then(({ images, masks }) => {
+      imagesRef.current = images;
+      masksRef.current = masks;
+    });
+  }, []);
 
   // Keep the latest frame choice where the render loop can read it
   // without restarting the loop every time you click a button.
   useEffect(() => {
     frameRef.current = frame;
   }, [frame]);
+
+  useEffect(() => {
+    lensOptionsRef.current = lensOptions;
+  }, [lensOptions]);
+
+  useEffect(() => {
+    frameOptionsRef.current = frameOptions;
+  }, [frameOptions]);
 
   // Start the camera on mount, stop it on unmount.
   useEffect(() => {
@@ -113,7 +148,18 @@ export function TryOn({ landmarker, frame, onShape }: Props) {
       // Draw the glasses using smoothed points so they don't jitter.
       previous = smoothLandmarks(previous, raw);
       const style = frameRef.current;
-      if (style !== 'none') drawGlasses(ctx, previous, w, h, style);
+      if (style !== 'none')
+        drawGlasses(
+          ctx,
+          previous,
+          w,
+          h,
+          style,
+          imagesRef.current,
+          masksRef.current,
+          lensOptionsRef.current,
+          frameOptionsRef.current,
+        );
     };
 
     raf = requestAnimationFrame(tick);
