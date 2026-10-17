@@ -1,5 +1,187 @@
 @import "tailwindcss";
 
+:root {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply text-slate-900;
+  font-family: var(--font-body);
+  background: #f5f1ea;
+  min-height: 100vh;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Ambient aurora background: a few soft, slowly drifting colour blobs behind
+   everything, fixed so they don't scroll with the page. */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: #f5f1ea;
+}
+.aurora-bg::before,
+.aurora-bg::after,
+.aurora-blob {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+}
+.aurora-bg::before {
+  width: 42vw;
+  height: 42vw;
+  top: -10%;
+  left: -8%;
+  background: radial-gradient(circle, #fbbf7a 0%, transparent 70%);
+  animation: drift1 22s ease-in-out infinite alternate;
+}
+.aurora-bg::after {
+  width: 48vw;
+  height: 48vw;
+  bottom: -15%;
+  right: -10%;
+  background: radial-gradient(circle, #86efac 0%, transparent 70%);
+  animation: drift2 26s ease-in-out infinite alternate;
+}
+.aurora-blob {
+  width: 36vw;
+  height: 36vw;
+  top: 25%;
+  right: 15%;
+  background: radial-gradient(circle, #f9a8d4 0%, transparent 70%);
+  animation: drift3 20s ease-in-out infinite alternate;
+}
+@keyframes drift1 {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(6vw, 8vh) scale(1.15);
+  }
+}
+@keyframes drift2 {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-7vw, -6vh) scale(1.1);
+  }
+}
+@keyframes drift3 {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-5vw, 7vh) scale(0.92);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg::before,
+  .aurora-bg::after,
+  .aurora-blob {
+    animation: none;
+  }
+}
+
+/* Glass panel: the recurring card surface, translucent + blurred so the
+   aurora shows through softly — on theme for an app about glasses. */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px -8px rgba(15, 23, 42, 0.12);
+}
+
+/* Custom range slider: filled track up to the current value, soft thumb. */
+input[type="range"].slider-track {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--slider-color, #059669) 0%,
+    var(--slider-color, #059669) var(--pct, 0%),
+    #e2e8f0 var(--pct, 0%),
+    #e2e8f0 100%
+  );
+  outline: none;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+input[type="range"].slider-track::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid var(--slider-color, #059669);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+input[type="range"].slider-track::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+input[type="range"].slider-track::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+}
+input[type="range"].slider-track::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid var(--slider-color, #059669);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+input[type="range"].slider-track::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+/* Native colour input, reshaped into a clean circular swatch button. */
+input[type="color"].color-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 2px white,
+    0 0 0 3.5px #cbd5e1;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+input[type="color"].color-swatch:hover {
+  transform: scale(1.08);
+}
+input[type="color"].color-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 9999px;
+}
+input[type="color"].color-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 9999px;
+}
+input[type="color"].color-swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 9999px;
 }

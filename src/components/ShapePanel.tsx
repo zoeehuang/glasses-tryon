@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from 'framer-motion';
 import { FACE_SHAPE_INFO, frameLabel } from '../lib/frames';
 import type { FaceShape, FrameChoice } from '../types';
 
@@ -9,8 +10,8 @@ type Props = {
 export function ShapePanel({ shape, onSelect }: Props) {
   if (!shape) {
     return (
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <section className="glass-panel rounded-2xl p-4">
+        <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
           Face shape
         </h2>
         <p className="text-sm text-slate-500">
@@ -23,12 +24,23 @@ export function ShapePanel({ shape, onSelect }: Props) {
   const info = FACE_SHAPE_INFO[shape];
 
   return (
-    <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+    <section className="glass-panel space-y-3 overflow-hidden rounded-2xl p-4">
       <div>
-        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <h2 className="mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">
           Face shape
         </h2>
-        <p className="text-2xl font-medium">{info.label}</p>
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={shape}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.25 }}
+            className="font-display text-2xl font-semibold text-slate-900"
+          >
+            {info.label}
+          </motion.p>
+        </AnimatePresence>
         <p className="mt-1 text-sm text-slate-600">{info.description}</p>
       </div>
       <div>
@@ -39,7 +51,7 @@ export function ShapePanel({ shape, onSelect }: Props) {
               key={id}
               type="button"
               onClick={() => onSelect(id)}
-              className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-800 hover:bg-emerald-100"
+              className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-800 transition hover:bg-emerald-100"
             >
               {frameLabel(id)}
             </button>
