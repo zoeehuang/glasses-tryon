@@ -147,7 +147,8 @@ export function TryOn({
       // Work out the face shape from the raw points.
       const ratios = computeFaceRatios(raw, w, h);
       onRatios?.(ratios);
-      if (ratios) onShape(voter.push(classifyFromRatios(ratios)));
+      const shape = ratios && classifyFromRatios(ratios);
+      if (shape) onShape(voter.push(shape));
 
       // Draw the glasses using smoothed points so they don't jitter.
       previous = smoothLandmarks(previous, raw);

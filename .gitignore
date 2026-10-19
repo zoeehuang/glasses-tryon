@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local calibration dataset (not shipped)
+/image calibrating/

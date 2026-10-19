@@ -1,0 +1,42 @@
+{
+  "centroids": {
+    "square": {
+      "lengthRatio": 0.955421027325096,
+      "jawRatio": 0.8366804044897084,
+      "foreheadRatio": 0.9566519378656438
+    },
+    "round": {
+      "lengthRatio": 0.9363975340771058,
+      "jawRatio": 0.7982155870709708,
+      "foreheadRatio": 0.9581242310469902
+    },
+    "oval": {
+      "lengthRatio": 0.9802024489136287,
+      "jawRatio": 0.7742126073089332,
+      "foreheadRatio": 0.9644089006789704
+    },
+    "oblong": {
+      "lengthRatio": 0.9906932253700905,
+      "jawRatio": 0.7754490787783928,
+      "foreheadRatio": 0.9678412235169989
+    },
+    "heart": {
+      "lengthRatio": 0.9671827145144954,
+      "jawRatio": 0.7521017864613665,
+      "foreheadRatio": 0.9711014938710044
+    }
+  },
+  "scale": {
+    "lengthRatio": 0.11568299563931421,
+    "jawRatio": 0.041874796346274445,
+    "foreheadRatio": 0.016188475206250677
+  },
+  "meta": {
+    "source": "calibrated",
+    "dataset": "image calibrating",
+    "trainCount": 5699,
+    "testCount": 724,
+    "testAccuracy": 0.3536,
+    "createdAt": "2026-10-19T04:26:06.664Z"
+  }
+}

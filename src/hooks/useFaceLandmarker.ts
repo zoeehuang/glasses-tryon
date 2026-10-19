@@ -12,7 +12,8 @@ type State = {
   error: string | null;
 };
 
-export function useFaceLandmarker(): State {
+/** Loads the face model. 'VIDEO' for a live camera, 'IMAGE' for still photos. */
+export function useFaceLandmarker(runningMode: 'VIDEO' | 'IMAGE' = 'VIDEO'): State {
   const [state, setState] = useState<State>({ landmarker: null, loading: true, error: null });
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export function useFaceLandmarker(): State {
       const vision = await FilesetResolver.forVisionTasks(WASM_URL);
       return FaceLandmarker.createFromOptions(vision, {
         baseOptions: { modelAssetPath: MODEL_URL, delegate },
-        runningMode: 'VIDEO',
+        runningMode,
         numFaces: 1,
       });
     }
@@ -55,7 +56,7 @@ export function useFaceLandmarker(): State {
       cancelled = true;
       instance?.close();
     };
-  }, []);
+  }, [runningMode]);
 
   return state;
 }
