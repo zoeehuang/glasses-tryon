@@ -1,4 +1,10 @@
-import { classifyFromRatios, type FaceRatios, type ShapeModel } from './faceShape';
+import {
+  classifyFromRatios,
+  FEATURE_NAMES,
+  type FaceRatios,
+  type FeatureName,
+  type ShapeModel,
+} from './faceShape';
 import type { FaceShape } from '../types';
 
 export type Split = 'train' | 'test';
@@ -10,7 +16,6 @@ export type Sample = {
 };
 
 const KNOWN_SHAPES: FaceShape[] = ['oval', 'round', 'square', 'heart', 'oblong', 'diamond'];
-const RATIO_KEYS = ['lengthRatio', 'jawRatio', 'foreheadRatio'] as const;
 
 /** The face shape named by an image's folder, e.g. "train/Heart/img01.jpg" → "heart". */
 export function labelFromPath(path: string): FaceShape | null {
@@ -35,42 +40,87 @@ export function splitFromPath(path: string): Split {
   return hash % 5 === 0 ? 'test' : 'train';
 }
 
+export type FitOptions = {
+  /** Which measurements to use (default: all of them). */
+  features?: FeatureName[];
+  /**
+   * Account for measurements that vary together (default: true). Without it,
+   * each measurement is treated as independent, so ten near-identical widths
+   * would outvote everything else.
+   */
+  correlated?: boolean;
+};
+
+/** How far the correlation matrix is pulled toward "independent" before inverting, for stability. */
+const SHRINKAGE = 0.05;
+
 /**
  * Learns a model from the training samples: each shape's centroid is the
- * average of its faces' ratios, and each ratio's scale is how much it
- * typically varies within a shape (pooled standard deviation). Shapes with no
- * training faces are left out, so they're never predicted.
+ * average of its faces' measurements, and each measurement's scale is how
+ * much it typically varies within a shape (pooled standard deviation).
+ * Shapes with no training faces are left out, so they're never predicted.
  */
-export function fitModel(samples: Sample[]): ShapeModel {
-  const groups = new Map<FaceShape, FaceRatios[]>();
+export function fitModel(samples: Sample[], options: FitOptions = {}): ShapeModel {
+  const features = options.features ?? FEATURE_NAMES;
+  const correlated = options.correlated ?? true;
+  const groups = new Map<FaceShape, number[][]>();
   for (const s of samples) {
     if (s.split !== 'train') continue;
     const group = groups.get(s.label) ?? [];
-    group.push(s.ratios);
+    group.push(features.map((f) => s.ratios[f]));
     groups.set(s.label, group);
   }
 
-  const centroids: Partial<Record<FaceShape, FaceRatios>> = {};
-  for (const [label, rs] of groups) {
-    centroids[label] = {
-      lengthRatio: average(rs.map((r) => r.lengthRatio)),
-      jawRatio: average(rs.map((r) => r.jawRatio)),
-      foreheadRatio: average(rs.map((r) => r.foreheadRatio)),
-    };
+  const centroids: Partial<Record<FaceShape, number[]>> = {};
+  for (const [label, rows] of groups) {
+    centroids[label] = features.map((_, i) => average(rows.map((r) => r[i])));
   }
 
-  const trainCount = [...groups.values()].reduce((n, rs) => n + rs.length, 0);
-  const degreesOfFreedom = trainCount - groups.size;
-  const scale = {} as FaceRatios;
-  for (const key of RATIO_KEYS) {
-    let sumSquares = 0;
-    for (const [label, rs] of groups) {
-      for (const r of rs) sumSquares += (r[key] - centroids[label]![key]) ** 2;
+  // Each face's offset from its own shape's average.
+  const residuals: number[][] = [];
+  for (const [label, rows] of groups) {
+    for (const r of rows) residuals.push(r.map((v, i) => v - centroids[label]![i]));
+  }
+  const degreesOfFreedom = residuals.length - groups.size;
+  const scale = features.map((_, i) => {
+    if (degreesOfFreedom <= 0) return 1;
+    const sumSquares = residuals.reduce((sum, r) => sum + r[i] ** 2, 0);
+    return Math.sqrt(sumSquares / degreesOfFreedom) || 1;
+  });
+
+  const model: ShapeModel = { features, centroids, scale };
+  if (correlated && degreesOfFreedom > 0) {
+    const n = features.length;
+    const correlation = Array.from({ length: n }, (_, i) =>
+      Array.from({ length: n }, (_, j) => {
+        if (i === j) return 1;
+        const sum = residuals.reduce((acc, r) => acc + (r[i] / scale[i]) * (r[j] / scale[j]), 0);
+        return (1 - SHRINKAGE) * (sum / degreesOfFreedom);
+      }),
+    );
+    model.precision = invert(correlation);
+  }
+  return model;
+}
+
+/** Inverse of a symmetric positive-definite matrix, by Gauss–Jordan elimination. */
+export function invert(matrix: number[][]): number[][] {
+  const n = matrix.length;
+  const a = matrix.map((row, i) => [...row, ...row.map((_, j) => (i === j ? 1 : 0))]);
+  for (let col = 0; col < n; col++) {
+    let pivot = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(a[r][col]) > Math.abs(a[pivot][col])) pivot = r;
+    [a[col], a[pivot]] = [a[pivot], a[col]];
+    const p = a[col][col];
+    if (Math.abs(p) < 1e-12) throw new Error('Matrix is not invertible');
+    for (let j = 0; j < 2 * n; j++) a[col][j] /= p;
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const factor = a[r][col];
+      if (factor !== 0) for (let j = 0; j < 2 * n; j++) a[r][j] -= factor * a[col][j];
     }
-    scale[key] = degreesOfFreedom > 0 ? Math.sqrt(sumSquares / degreesOfFreedom) || 1 : 1;
   }
-
-  return { centroids, scale };
+  return a.map((row) => row.slice(n));
 }
 
 export type Evaluation = {

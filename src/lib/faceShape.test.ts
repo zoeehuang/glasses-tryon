@@ -3,6 +3,7 @@ import {
   classifyFromRatios,
   computeFaceRatios,
   createShapeVoter,
+  FEATURE_NAMES,
   type FaceRatios,
   type ShapeModel,
 } from './faceShape';
@@ -83,12 +84,33 @@ describe('computeFaceRatios', () => {
     expect(ratios!.foreheadRatio).toBeCloseTo(face.fore / face.cheek, 1);
   });
 
-  it('gives the same ratios when the head is tilted', () => {
+  it('reads the width profile at ten heights, relative to the widest width', () => {
+    const ratios = computeFaceRatios(makeFace(face), 1, 1)!;
+    expect(ratios.width45).toBeCloseTo(1, 1);
+    expect(ratios.width5).toBeLessThan(ratios.width25);
+    expect(ratios.width95).toBeLessThan(ratios.width75);
+    expect(ratios.width75).toBeCloseTo(widthAt(0.75, face) / face.cheek, 1);
+  });
+
+  it('reads a smaller chin angle for a pointed chin', () => {
+    const broad = computeFaceRatios(makeFace({ ...face, jaw: 0.38 }), 1, 1)!;
+    const pointed = computeFaceRatios(makeFace({ ...face, jaw: 0.24 }), 1, 1)!;
+    expect(pointed.chinAngle).toBeLessThan(broad.chinAngle);
+  });
+
+  it('reads a smaller jaw angle for a squarer jaw', () => {
+    const square = computeFaceRatios(makeFace({ ...face, jaw: 0.4 }), 1, 1)!;
+    const tapered = computeFaceRatios(makeFace({ ...face, jaw: 0.26 }), 1, 1)!;
+    expect(square.jawAngle).toBeLessThan(tapered.jawAngle);
+  });
+
+  it('gives the same measurements when the head is tilted', () => {
     const level = computeFaceRatios(makeFace(face), 1, 1)!;
     const tilted = computeFaceRatios(makeFace({ ...face, rollDeg: 15 }), 1, 1)!;
-    expect(tilted.lengthRatio).toBeCloseTo(level.lengthRatio, 2);
-    expect(tilted.jawRatio).toBeCloseTo(level.jawRatio, 2);
-    expect(tilted.foreheadRatio).toBeCloseTo(level.foreheadRatio, 2);
+    for (const name of FEATURE_NAMES) {
+      // Angles are in degrees, so allow them a proportionally looser match.
+      expect(tilted[name], name).toBeCloseTo(level[name], name.endsWith('Angle') ? 0 : 2);
+    }
   });
 
   it('returns null when the head is turned', () => {
@@ -101,38 +123,55 @@ describe('computeFaceRatios', () => {
 });
 
 describe('classifyFromRatios', () => {
+  const features: ShapeModel['features'] = ['lengthRatio', 'jawRatio', 'foreheadRatio'];
   const model: ShapeModel = {
+    features,
     centroids: {
-      oval: { lengthRatio: 1.3, jawRatio: 0.8, foreheadRatio: 0.8 },
-      round: { lengthRatio: 1.0, jawRatio: 0.85, foreheadRatio: 0.8 },
-      heart: { lengthRatio: 1.3, jawRatio: 0.65, foreheadRatio: 0.95 },
+      oval: [1.3, 0.8, 0.8],
+      round: [1.0, 0.85, 0.8],
+      heart: [1.3, 0.65, 0.95],
     },
-    scale: { lengthRatio: 0.1, jawRatio: 0.05, foreheadRatio: 0.05 },
+    scale: [0.1, 0.05, 0.05],
   };
 
   it('picks the nearest shape', () => {
-    const nearRound: FaceRatios = { lengthRatio: 1.04, jawRatio: 0.84, foreheadRatio: 0.79 };
+    const nearRound: Partial<FaceRatios> = { lengthRatio: 1.04, jawRatio: 0.84, foreheadRatio: 0.79 };
     expect(classifyFromRatios(nearRound, model)).toBe('round');
   });
 
   it('always picks some shape — there is no fallback default', () => {
-    const farFromEverything: FaceRatios = { lengthRatio: 3, jawRatio: 0.1, foreheadRatio: 2 };
+    const farFromEverything: Partial<FaceRatios> = { lengthRatio: 3, jawRatio: 0.1, foreheadRatio: 2 };
     expect(classifyFromRatios(farFromEverything, model)).not.toBeNull();
   });
 
   it('weighs each ratio by how much it varies within a shape', () => {
     const twoShapes: ShapeModel = {
-      centroids: {
-        round: { lengthRatio: 1.0, jawRatio: 0.8, foreheadRatio: 0.8 },
-        oval: { lengthRatio: 1.25, jawRatio: 0.86, foreheadRatio: 0.8 },
-      },
-      scale: { lengthRatio: 0.1, jawRatio: 0.05, foreheadRatio: 0.05 },
+      features,
+      centroids: { round: [1.0, 0.8, 0.8], oval: [1.25, 0.86, 0.8] },
+      scale: [0.1, 0.05, 0.05],
     };
     // Unweighted, this sample is nearer round (0.12 away vs 0.15). But jaw
     // width varies less within a shape than length does, so its 0.06 jaw gap
     // from round outweighs its larger length gap from oval.
-    const sample: FaceRatios = { lengthRatio: 1.1, jawRatio: 0.86, foreheadRatio: 0.8 };
+    const sample: Partial<FaceRatios> = { lengthRatio: 1.1, jawRatio: 0.86, foreheadRatio: 0.8 };
     expect(classifyFromRatios(sample, twoShapes)).toBe('oval');
+  });
+
+  it('counts measurements that move together once, given their correlation', () => {
+    // Two copies of the same measurement (jaw) against one length measurement.
+    // Treated as independent, the copies outvote length; with the correlation
+    // known, they count once and length decides.
+    const base: ShapeModel = {
+      features: ['lengthRatio', 'jawRatio', 'width75'],
+      centroids: { round: [1.0, 0.8, 0.8], oval: [1.25, 1.03, 1.03] },
+      scale: [0.1, 0.1, 0.1],
+    };
+    const sample: Partial<FaceRatios> = { lengthRatio: 1.2, jawRatio: 0.85, width75: 0.85 };
+    expect(classifyFromRatios(sample, base)).toBe('round');
+    // Inverse of [[1, 0, 0], [0, 1, 0.99], [0, 0.99, 1]].
+    const k = 1 / (1 - 0.99 ** 2);
+    const correlated = { ...base, precision: [[1, 0, 0], [0, k, -0.99 * k], [0, -0.99 * k, k]] };
+    expect(classifyFromRatios(sample, correlated)).toBe('oval');
   });
 
   it('never predicts a shape the model has no data for', () => {

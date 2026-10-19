@@ -84,6 +84,10 @@ export function ShapePanel({ shape, ratios, onSelect }: Props) {
             <dd>{ratios.jawRatio.toFixed(2)}</dd>
             <dt>Forehead ÷ cheekbone</dt>
             <dd>{ratios.foreheadRatio.toFixed(2)}</dd>
+            <dt>Chin angle</dt>
+            <dd>{Math.round(ratios.chinAngle)}°</dd>
+            <dt>Jaw angle</dt>
+            <dd>{Math.round(ratios.jawAngle)}°</dd>
           </dl>
         </details>
       )}

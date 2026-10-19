@@ -1,11 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { evaluate, fitModel, labelFromPath, splitFromPath, type Sample } from './calibration';
+import {
+  evaluate,
+  fitModel,
+  invert,
+  labelFromPath,
+  splitFromPath,
+  type FitOptions,
+  type Sample,
+} from './calibration';
+import { FEATURE_NAMES, type FaceRatios } from './faceShape';
 
-const r = (lengthRatio: number, jawRatio: number, foreheadRatio: number) => ({
+/** A face with the three main ratios set and every other measurement at 0. */
+const r = (lengthRatio: number, jawRatio: number, foreheadRatio: number): FaceRatios => ({
+  ...(Object.fromEntries(FEATURE_NAMES.map((f) => [f, 0])) as FaceRatios),
   lengthRatio,
   jawRatio,
   foreheadRatio,
 });
+
+const THREE_RATIOS: FitOptions = {
+  features: ['lengthRatio', 'jawRatio', 'foreheadRatio'],
+  correlated: false,
+};
 
 describe('labelFromPath', () => {
   it('reads the shape from the parent folder, ignoring case', () => {
@@ -46,10 +62,15 @@ describe('fitModel', () => {
   ];
 
   it('averages each shape’s training faces, ignoring test faces', () => {
-    const model = fitModel(samples);
-    expect(model.centroids.round?.lengthRatio).toBeCloseTo(1.1);
-    expect(model.centroids.round?.jawRatio).toBeCloseTo(0.85);
-    expect(model.centroids.oval?.lengthRatio).toBeCloseTo(1.5);
+    const model = fitModel(samples, THREE_RATIOS);
+    expect(model.features).toEqual(['lengthRatio', 'jawRatio', 'foreheadRatio']);
+    expect(model.centroids.round?.[0]).toBeCloseTo(1.1);
+    expect(model.centroids.round?.[1]).toBeCloseTo(0.85);
+    expect(model.centroids.oval?.[0]).toBeCloseTo(1.5);
+  });
+
+  it('uses every measurement by default', () => {
+    expect(fitModel(samples).features).toEqual(FEATURE_NAMES);
   });
 
   it('only includes shapes that have training faces', () => {
@@ -59,17 +80,43 @@ describe('fitModel', () => {
   it('measures how much each ratio varies within a shape', () => {
     // Each shape's lengths sit 0.1 either side of its average → pooled std of
     // sqrt(4 × 0.01 / (4 faces − 2 shapes)) ≈ 0.141.
-    expect(fitModel(samples).scale.lengthRatio).toBeCloseTo(Math.sqrt(0.02), 3);
+    expect(fitModel(samples, THREE_RATIOS).scale[0]).toBeCloseTo(Math.sqrt(0.02), 3);
+  });
+
+  it('learns how measurements vary together only when asked to', () => {
+    expect(fitModel(samples, THREE_RATIOS).precision).toBeUndefined();
+    const model = fitModel(samples, { ...THREE_RATIOS, correlated: true });
+    expect(model.precision).toHaveLength(3);
+  });
+});
+
+describe('invert', () => {
+  it('inverts a matrix so that the product is the identity', () => {
+    const m = [
+      [4, 1, 0.5],
+      [1, 3, 0.2],
+      [0.5, 0.2, 2],
+    ];
+    const inv = invert(m);
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const product = m[i].reduce((sum, v, k) => sum + v * inv[k][j], 0);
+        expect(product).toBeCloseTo(i === j ? 1 : 0, 10);
+      }
+    }
   });
 });
 
 describe('evaluate', () => {
-  const model = fitModel([
-    { label: 'round', split: 'train', ratios: r(1.0, 0.85, 0.8) },
-    { label: 'round', split: 'train', ratios: r(1.02, 0.86, 0.79) },
-    { label: 'oval', split: 'train', ratios: r(1.4, 0.75, 0.82) },
-    { label: 'oval', split: 'train', ratios: r(1.42, 0.74, 0.8) },
-  ]);
+  const model = fitModel(
+    [
+      { label: 'round', split: 'train', ratios: r(1.0, 0.85, 0.8) },
+      { label: 'round', split: 'train', ratios: r(1.02, 0.86, 0.79) },
+      { label: 'oval', split: 'train', ratios: r(1.4, 0.75, 0.82) },
+      { label: 'oval', split: 'train', ratios: r(1.42, 0.74, 0.8) },
+    ],
+    THREE_RATIOS,
+  );
 
   it('counts correct guesses, per shape and overall', () => {
     const result = evaluate(model, [
