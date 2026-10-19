@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { CompareGrid } from './components/CompareGrid';
 import { FramePicker } from './components/FramePicker';
 import { GlassesHeroIcon } from './components/GlassesHeroIcon';
 import { ShapePanel } from './components/ShapePanel';
@@ -13,7 +14,8 @@ import {
   type LensOptions,
 } from './lib/drawGlasses';
 import { useFaceLandmarker } from './hooks/useFaceLandmarker';
-import { FACE_SHAPE_INFO } from './lib/frames';
+import type { FaceRatios } from './lib/faceShape';
+import { FACE_SHAPE_INFO, FRAME_STYLES } from './lib/frames';
 import {
   loadPatternImages,
   PATTERN_LINE_COLORS,
@@ -25,8 +27,10 @@ import type { FaceShape, FrameChoice } from './types';
 export default function App() {
   const { landmarker, loading, error } = useFaceLandmarker();
   const [cameraOn, setCameraOn] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
   const [frame, setFrame] = useState<FrameChoice>('aviator');
   const [shape, setShape] = useState<FaceShape | null>(null);
+  const [ratios, setRatios] = useState<FaceRatios | null>(null);
   const [lensOptions, setLensOptions] = useState<LensOptions>(DEFAULT_LENS_OPTIONS);
   const [frameOptions, setFrameOptions] = useState<FrameOptions>(DEFAULT_FRAME_OPTIONS);
   const [patternImages, setPatternImages] = useState<Record<PatternName, HTMLImageElement> | null>(
@@ -62,67 +66,105 @@ export default function App() {
         </motion.header>
 
         <Stagger delay={0.08}>
-          <FramePicker selected={frame} recommended={recommended} onSelect={setFrame} />
-          <div className="grid gap-4 md:grid-cols-[1fr_300px]">
+          {compareMode && cameraOn && landmarker ? (
             <div className="space-y-3">
-              {cameraOn && landmarker ? (
-                <TryOn
-                  landmarker={landmarker}
-                  frame={frame}
-                  onShape={setShape}
-                  lensOptions={lensOptions}
-                  frameOptions={frameOptions}
-                />
-              ) : (
-                <div className="glass-panel flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-2xl p-6 text-center text-sm text-slate-500">
-                  {loading && !error && (
-                    <svg
-                      className="h-6 w-6 animate-spin text-slate-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                      />
-                    </svg>
-                  )}
-                  <span>
-                    {error ?? (loading ? 'Loading face model...' : 'Press "Start camera" to begin')}
-                  </span>
-                </div>
-              )}
-              <motion.button
-                type="button"
-                disabled={loading || error !== null}
-                onClick={() => setCameraOn((on) => !on)}
-                whileHover={{ scale: loading || error ? 1 : 1.015 }}
-                whileTap={{ scale: loading || error ? 1 : 0.985 }}
-                className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {cameraOn ? 'Stop camera' : 'Start camera'}
-              </motion.button>
-            </div>
-            <div className="space-y-3">
-              <ShapePanel shape={shape} onSelect={setFrame} />
-              <TuningTabs
-                frameOptions={frameOptions}
-                onFrameOptionsChange={setFrameOptions}
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-xl font-semibold text-slate-900">
+                  Every frame, side by side
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setCompareMode(false)}
+                  className="rounded-lg border border-slate-300 bg-white/70 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-white"
+                >
+                  Back to single view
+                </button>
+              </div>
+              <CompareGrid
+                landmarker={landmarker}
+                styles={FRAME_STYLES.map((f) => f.id)}
                 lensOptions={lensOptions}
-                onLensOptionsChange={setLensOptions}
-                patternImages={patternImages}
               />
             </div>
-          </div>
+          ) : (
+            <>
+              <FramePicker selected={frame} recommended={recommended} onSelect={setFrame} />
+              <div className="grid gap-4 md:grid-cols-[1fr_300px]">
+                <div className="space-y-3">
+                  {cameraOn && landmarker ? (
+                    <TryOn
+                      landmarker={landmarker}
+                      frame={frame}
+                      onShape={setShape}
+                      onRatios={setRatios}
+                      lensOptions={lensOptions}
+                      frameOptions={frameOptions}
+                    />
+                  ) : (
+                    <div className="glass-panel flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-2xl p-6 text-center text-sm text-slate-500">
+                      {loading && !error && (
+                        <svg
+                          className="h-6 w-6 animate-spin text-slate-400"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                          />
+                        </svg>
+                      )}
+                      <span>
+                        {error ?? (loading ? 'Loading face model...' : 'Press "Start camera" to begin')}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <motion.button
+                      type="button"
+                      disabled={loading || error !== null}
+                      onClick={() => setCameraOn((on) => !on)}
+                      whileHover={{ scale: loading || error ? 1 : 1.015 }}
+                      whileTap={{ scale: loading || error ? 1 : 0.985 }}
+                      className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {cameraOn ? 'Stop camera' : 'Start camera'}
+                    </motion.button>
+                    {cameraOn && (
+                      <motion.button
+                        type="button"
+                        onClick={() => setCompareMode(true)}
+                        whileHover={{ scale: 1.015 }}
+                        whileTap={{ scale: 0.985 }}
+                        className="rounded-xl border border-slate-300 bg-white/70 px-4 py-2.5 font-medium text-slate-700 shadow-sm transition-colors hover:bg-white"
+                      >
+                        Compare all
+                      </motion.button>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <ShapePanel shape={shape} ratios={ratios} onSelect={setFrame} />
+                  <TuningTabs
+                    frameOptions={frameOptions}
+                    onFrameOptionsChange={setFrameOptions}
+                    lensOptions={lensOptions}
+                    onLensOptionsChange={setLensOptions}
+                    patternImages={patternImages}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </Stagger>
       </main>
     </>
