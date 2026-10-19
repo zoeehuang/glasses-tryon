@@ -1,13 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import type { FaceRatios } from '../lib/faceShape';
 import { FACE_SHAPE_INFO, frameLabel } from '../lib/frames';
 import type { FaceShape, FrameChoice } from '../types';
 
 type Props = {
   shape: FaceShape | null;
+  ratios?: FaceRatios | null;
   onSelect: (frame: FrameChoice) => void;
 };
 
-export function ShapePanel({ shape, onSelect }: Props) {
+export function ShapePanel({ shape, ratios, onSelect }: Props) {
   if (!shape) {
     return (
       <section className="glass-panel rounded-2xl p-4">
@@ -69,6 +71,21 @@ export function ShapePanel({ shape, onSelect }: Props) {
             ))}
           </div>
         </div>
+      )}
+      {ratios && (
+        <details className="text-xs text-slate-500">
+          <summary className="cursor-pointer font-medium text-slate-600 hover:text-slate-800">
+            Measurements
+          </summary>
+          <dl className="mt-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 tabular-nums">
+            <dt>Length ÷ width</dt>
+            <dd>{ratios.lengthRatio.toFixed(2)}</dd>
+            <dt>Jaw ÷ cheekbone</dt>
+            <dd>{ratios.jawRatio.toFixed(2)}</dd>
+            <dt>Forehead ÷ cheekbone</dt>
+            <dd>{ratios.foreheadRatio.toFixed(2)}</dd>
+          </dl>
+        </details>
       )}
       <p className="text-xs text-slate-400">General styling guidance, not professional advice.</p>
     </section>

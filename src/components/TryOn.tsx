@@ -7,7 +7,7 @@ import {
   type FrameOptions,
   type LensOptions,
 } from '../lib/drawGlasses';
-import { classifyFaceShape, createShapeVoter } from '../lib/faceShape';
+import { classifyFromRatios, computeFaceRatios, createShapeVoter, type FaceRatios } from '../lib/faceShape';
 import { loadFrameAssets } from '../lib/frameImages';
 import { smoothLandmarks } from '../lib/smoothing';
 import type { FaceShape, FrameChoice, FrameStyle, Landmark } from '../types';
@@ -16,6 +16,8 @@ type Props = {
   landmarker: FaceLandmarker;
   frame: FrameChoice;
   onShape: (shape: FaceShape) => void;
+  /** The raw measurements behind the current shape guess, for calibration. */
+  onRatios?: (ratios: FaceRatios | null) => void;
   lensOptions?: LensOptions;
   frameOptions?: FrameOptions;
 };
@@ -35,6 +37,7 @@ export function TryOn({
   landmarker,
   frame,
   onShape,
+  onRatios,
   lensOptions = DEFAULT_LENS_OPTIONS,
   frameOptions = DEFAULT_FRAME_OPTIONS,
 }: Props) {
@@ -142,8 +145,9 @@ export function TryOn({
       }
 
       // Work out the face shape from the raw points.
-      const shape = classifyFaceShape(raw, w, h);
-      if (shape) onShape(voter.push(shape));
+      const ratios = computeFaceRatios(raw, w, h);
+      onRatios?.(ratios);
+      if (ratios) onShape(voter.push(classifyFromRatios(ratios)));
 
       // Draw the glasses using smoothed points so they don't jitter.
       previous = smoothLandmarks(previous, raw);
@@ -164,7 +168,7 @@ export function TryOn({
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [landmarker, onShape]);
+  }, [landmarker, onShape, onRatios]);
 
   // The video and the canvas are both flipped so it behaves like a mirror.
   return (

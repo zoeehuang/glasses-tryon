@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyFaceShape, createShapeVoter } from './faceShape';
+import { classifyFaceShape, classifyFromRatios, createShapeVoter } from './faceShape';
 import type { FaceShape, Landmark } from '../types';
 
 type Dims = { h: number; w: number; cheek: number; jaw: number; fore: number; noseX?: number };
@@ -46,6 +46,28 @@ describe('classifyFaceShape', () => {
 
   it('returns null when there are too few landmarks', () => {
     expect(classifyFaceShape([], 1, 1)).toBeNull();
+  });
+
+  it('classifies a borderline face as its nearest shape instead of defaulting to oval', () => {
+    // These ratios sit just outside the old square branch's strict
+    // "lengthRatio < 1.15" condition (it's exactly 1.15), which used to fall
+    // through every remaining branch and land on the oval default even
+    // though the measurements are clearly closest to square.
+    const dims: Dims = { h: 0.46, w: 0.4, cheek: 0.4, jaw: 0.352, fore: 0.348 };
+    expect(classifyFaceShape(makeFace(dims), 1, 1)).toBe('square');
+  });
+});
+
+describe('classifyFromRatios', () => {
+  it('matches the real face-shape examples exactly', () => {
+    for (const [expected, dims] of cases) {
+      const ratios = {
+        lengthRatio: dims.h / dims.w,
+        jawRatio: dims.jaw / dims.cheek,
+        foreheadRatio: dims.fore / dims.cheek,
+      };
+      expect(classifyFromRatios(ratios)).toBe(expected);
+    }
   });
 });
 
