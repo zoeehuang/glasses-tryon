@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 
 # Local calibration dataset (not shipped)
-/image calibrating/
+/image calibrating*/
